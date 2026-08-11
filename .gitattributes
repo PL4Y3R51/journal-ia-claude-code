@@ -1,0 +1,14 @@
+# Le kit doit fonctionner sur Linux, macOS et Windows depuis le même dépôt.
+# Sans cette normalisation, un clone sous Windows produit des fins de ligne CRLF,
+# et install.sh échoue ensuite sur Linux avec « bad interpreter: /bin/bash^M ».
+* text=auto eol=lf
+
+# Les scripts exécutés par un interpréteur POSIX exigent LF.
+*.sh text eol=lf
+*.py text eol=lf
+
+# PowerShell accepte LF, mais CRLF est la convention sous Windows.
+*.ps1 text eol=crlf
+
+# Le journal est lu ligne par ligne : LF partout.
+*.jsonl text eol=lf

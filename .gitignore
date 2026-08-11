@@ -1,0 +1,26 @@
+# Aucun journal réel ne doit atterrir dans le dépôt du kit : il contiendrait les
+# prompts d'une vraie séance de travail. Seul exemples/journal-exemple.jsonl est
+# suivi, et il est explicitement réintégré plus bas.
+**/journal-ia/*.jsonl
+**/journal-ia/.lock/
+**/rapports/
+errors.log
+**/errors.log
+
+# L'exemple est de la documentation, pas un journal.
+!exemples/journal-exemple.jsonl
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Systèmes de fichiers
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Éditeurs
+.idea/
+.vscode/
+*.swp
+*~

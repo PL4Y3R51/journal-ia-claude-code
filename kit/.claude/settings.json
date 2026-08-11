@@ -6,8 +6,7 @@
           {
             "type": "command",
             "async": true,
-            "command": "python3",
-            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/log_prompt.py"],
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/log_prompt.py\"",
             "statusMessage": "Journal IA : prompt"
           }
         ]
@@ -19,8 +18,7 @@
           {
             "type": "command",
             "async": true,
-            "command": "python3",
-            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/log_response.py"],
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/log_response.py\"",
             "statusMessage": "Journal IA : réponse"
           }
         ]
@@ -28,13 +26,12 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit|Bash",
+        "matcher": "Write|Edit|Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
             "async": true,
-            "command": "python3",
-            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/log_action.py"],
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/log_action.py\"",
             "statusMessage": "Journal IA : action"
           }
         ]

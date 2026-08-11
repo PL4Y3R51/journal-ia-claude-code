@@ -251,12 +251,16 @@ def ligne_response(d):
 
 
 def est_lecture_seule(commande, cmds, git_sous_cmds):
+    # PowerShell est insensible à la casse : « Get-Content » et « get-content »
+    # sont la même commande. On compare donc en minuscules, ce qui ne change
+    # rien aux commandes POSIX de la liste, déjà toutes en minuscules.
     mots = commande.strip().split()
     if not mots:
         return True
-    if mots[0] == "git":
-        return len(mots) > 1 and mots[1] in git_sous_cmds
-    return mots[0] in cmds
+    premier = mots[0].lower()
+    if premier == "git":
+        return len(mots) > 1 and mots[1].lower() in git_sous_cmds
+    return premier in cmds
 
 
 def ligne_action(d, cmds, git_sous_cmds):
@@ -275,12 +279,16 @@ def ligne_action(d, cmds, git_sous_cmds):
                 "tool": outil, "target": cible,
                 "state": git_state(brut, cible, session)}
 
-    if outil == "Bash":
+    # Sous Windows, Claude Code peut exposer le shell comme outil « PowerShell »
+    # et non « Bash » (variable CLAUDE_CODE_USE_POWERSHELL_TOOL). Les deux outils
+    # portent la commande dans le même champ « command » : sans ce second nom,
+    # aucune commande n'était journalisée chez les étudiants sous Windows.
+    if outil in ("Bash", "PowerShell"):
         commande = entree.get("command") or ""
         if not commande or est_lecture_seule(commande, cmds, git_sous_cmds):
             return None
         return {"ts": now(), "session": session, "type": "action",
-                "tool": "Bash", "target": commande[:MAX_COMMANDE],
+                "tool": outil, "target": commande[:MAX_COMMANDE],
                 "state": "run"}
 
     return None

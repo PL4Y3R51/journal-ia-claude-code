@@ -123,7 +123,10 @@ Titre 'Configuration'
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 $gabarit = Get-Content -LiteralPath (Join-Path $Kit 'settings.json') -Raw -Encoding UTF8
 if ($Py -ne 'python3') {
-  $gabarit = $gabarit.Replace('"command": "python3"', '"command": "' + $Py + '"')
+  # Le gabarit est en << forme shell >> : la commande est une seule chaine,
+  # << python3 "<chemin>" >>. On ne remplace que le nom de l'interpreteur, en
+  # tete de chaine, sans toucher au chemin qui suit.
+  $gabarit = $gabarit.Replace('"command": "python3 ', '"command": "' + $Py + ' ')
   Avert "Hooks configures avec << $Py >> (python3 absent de cette machine)."
 }
 # LF et UTF-8 sans BOM, pour que le fichier soit identique a celui de install.sh.

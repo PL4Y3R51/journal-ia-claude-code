@@ -190,8 +190,26 @@ Un argument facultatif restreint la portée : `/rapport-ia last` pour la derniè
 séance seulement, `/rapport-ia <identifiant>` pour une séance précise.
 
 Le squelette est produit par un script Python qui ne fait que copier et compter ;
-c'est ensuite Claude qui rédige les résumés, à partir des réponses enregistrées
+c'est ensuite Claude qui rédige les résultats, à partir des réponses enregistrées
 dans le journal et de rien d'autre.
+
+**Ce que contient le rapport rendu.** Pour chaque tour : le prompt verbatim, puis
+un **Résultat** d'une à deux phrases disant ce que la demande a produit, puis la
+liste des fichiers et commandes. Les réponses complètes de Claude n'y figurent
+pas — elles restent dans `journal.jsonl`. C'est voulu : le rapport est le
+document qu'on lit, le journal est la pièce qu'on produit si on demande le
+détail. Les deux se remettent ensemble.
+
+Le skill génère le squelette avec les réponses jointes en commentaires
+invisibles, s'en sert pour rédiger, puis les retire :
+
+```bash
+python3 .claude/skills/rapport-ia/scripts/build-report.py --nettoyer rapports/rapport-ia-2026-03-12.md
+```
+
+Ce nettoyage refuse de tourner s'il reste des résumés à écrire, et il suit les
+clôtures de blocs de code : un prompt qui contiendrait lui-même le texte d'un
+commentaire n'est pas touché.
 
 Regarde `exemples/rapport-exemple.md` pour voir le rendu attendu.
 
@@ -208,7 +226,9 @@ pandoc rapports/rapport-ia-2026-03-12.md -o rapport.docx
 python3 .claude/skills/rapport-ia/scripts/build-report.py --sortie auto
 ```
 
-Options : `--session <id|last|all>`, `--depuis AAAA-MM-JJ`, `--sortie <fichier>`.
+Options : `--session <id|last|all>`, `--depuis AAAA-MM-JJ`, `--sortie <fichier>`,
+`--avec-reponses` (joindre les réponses en commentaires), `--nettoyer <rapport>`
+(les retirer d'un rapport déjà rédigé).
 
 ---
 
@@ -240,10 +260,15 @@ le kit.
   dis-le dans le rapport, dont le pied de page déclare ce filtrage. Le filtre
   n'examine que le premier mot de la commande : `sed -i` ou
   `awk … > fichier` écrivent vraiment et passent quand même à travers.
-- **Les résumés sont générés par un LLM** et peuvent être imprécis ou
+- **Les résultats sont résumés par un LLM** et peuvent être imprécis ou
   incomplets. Seuls les prompts sont garantis mot pour mot, parce qu'ils sont
-  copiés mécaniquement. Le rapport distingue visuellement les deux, et conserve
-  la réponse d'origine en commentaire HTML pour que le résumé reste vérifiable.
+  copiés mécaniquement. Le rapport distingue visuellement les deux.
+- **Le rapport ne contient pas les réponses complètes.** Un résultat de deux
+  phrases n'est pas vérifiable depuis le rapport seul : c'est le journal qui
+  permet de le contrôler. Remets les deux si on te demande de justifier, et ne
+  présente jamais le rapport comme se suffisant à lui-même. `--avec-reponses`
+  sans nettoyage final produit un rapport qui les conserve, si tu préfères un
+  document autoportant.
 - **Hooks asynchrones** : ils tournent en arrière-plan pour ne jamais ralentir
   ta session. En cas de crash du terminal, une ligne peut manquer. Le transcript
   JSONL interne de Claude Code (`~/.claude/projects/…`) sert de filet de secours
@@ -274,9 +299,12 @@ le kit.
 
   > Ce rapport est généré à partir d'un journal horodaté écrit automatiquement à
   > chaque interaction. Les prompts sont reproduits littéralement depuis ce
-  > journal. Les résumés d'actions sont rédigés par Claude à partir des réponses
+  > journal. Les résultats sont résumés par Claude à partir des réponses
   > enregistrées. Les commandes de consultation en lecture seule ne sont pas
   > journalisées.
+  >
+  > Les réponses complètes dont ces résumés sont tirés ne figurent pas dans ce
+  > document : elles restent dans le journal, qui les conserve intégralement.
 
 - Relis le rapport avant de le rendre. C'est toi qui le signes.
 

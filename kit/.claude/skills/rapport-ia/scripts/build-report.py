@@ -4,8 +4,18 @@
 
 Ce script AGRÈGE, il ne résume pas. Il copie les prompts mot pour mot, compte
 les actions répétées, et laisse un marqueur « <!-- RÉSUMÉ À RÉDIGER --> » à
-chaque endroit où un résumé est attendu. Le remplissage de ces marqueurs est le
+chaque endroit où un résultat est attendu. Le remplissage de ces marqueurs est le
 travail du skill /rapport-ia, pas celui de ce script.
+
+Deux modes :
+
+  build-report.py [journal] [--avec-reponses]   produit le squelette
+  build-report.py --nettoyer <rapport>          retire les réponses complètes
+
+Par défaut, le rapport ne contient pas les réponses complètes : le journal les
+conserve intégralement, et c'est lui qui fait foi si on les demande. Le skill,
+lui, génère avec « --avec-reponses » pour avoir de quoi rédiger, puis nettoie
+en fin de course.
 
 Bibliothèque standard uniquement. Aucun appel réseau.
 """
@@ -19,6 +29,11 @@ import sys
 
 MARQUEUR = "<!-- RÉSUMÉ À RÉDIGER -->"
 
+# Ouverture des commentaires de réponse. Le nettoyage final s'appuie sur cette
+# chaîne, en suivant l'état des blocs de code pour ne jamais examiner l'intérieur
+# d'un prompt.
+DEBUT_REPONSE = "<!-- RÉPONSE ENREGISTRÉE"
+
 # Libellés de rendu. « unknown » se dit « touché » : hors dépôt Git, on ne peut
 # pas distinguer une création d'une modification, et prétendre le contraire
 # serait une invention.
@@ -28,15 +43,29 @@ ETATS = {
     "unknown": "touché",
 }
 
-PIED_DE_PAGE = """\
+PIED_COMMUN = """\
 ## Note méthodologique
 
 Ce rapport est généré à partir d'un journal horodaté écrit automatiquement à
 chaque interaction. Les prompts sont reproduits littéralement depuis ce journal.
-Les résumés d'actions sont rédigés par Claude à partir des réponses
-enregistrées. Les commandes de consultation en lecture seule ne sont pas
-journalisées.
+Les résultats sont résumés par Claude à partir des réponses enregistrées. Les
+commandes de consultation en lecture seule ne sont pas journalisées.
 """
+
+# Cette phrase décrit ce que le document contient réellement, et « --nettoyer »
+# remplace la première par la seconde. Un pied de page qui décrirait un document
+# autre que celui qu'on remet serait pire que pas de pied de page du tout.
+PIED_AVEC = """\
+Les réponses complètes dont ces résumés sont tirés sont conservées dans ce
+document, en commentaires HTML invisibles à la lecture."""
+
+PIED_SANS = """\
+Les réponses complètes dont ces résumés sont tirés ne figurent pas dans ce
+document : elles restent dans le journal, qui les conserve intégralement."""
+
+
+def pied_de_page(avec_reponses):
+    return "%s\n%s\n" % (PIED_COMMUN, PIED_AVEC if avec_reponses else PIED_SANS)
 
 
 # --------------------------------------------------------------------------
@@ -207,12 +236,16 @@ def libelle_action(cle, n):
 
 
 def bloc_reponse(tour):
-    """Insère la réponse enregistrée dans un commentaire HTML.
+    """Insère la réponse enregistrée dans un commentaire HTML, en fin de tour.
 
-    C'est la source dont le skill doit se servir pour rédiger le résumé — et
+    C'est la source dont le skill doit se servir pour rédiger le résultat — et
     seulement elle, jamais la mémoire de la conversation en cours. Le
     commentaire est invisible dans le Markdown rendu comme dans une conversion
     pandoc, donc il ne pollue pas le document remis à l'enseignant.
+
+    N'est émis qu'avec « --avec-reponses », et « --nettoyer » le retire une fois
+    les résultats rédigés : le rapport remis n'a pas à transporter les réponses
+    complètes, que le journal conserve déjà.
 
     « --> » est neutralisé pour ne pas fermer le commentaire par accident.
     C'est la seule retouche appliquée à ce texte ; le prompt, lui, n'en subit
@@ -223,11 +256,11 @@ def bloc_reponse(tour):
                 "journal) -->")
     texte = tour["reponse"].replace("-->", "--&gt;")
     suffixe = " [texte tronqué à 2000 caractères]" if tour["tronquee"] else ""
-    return ("<!-- RÉPONSE ENREGISTRÉE%s — source unique du résumé ci-dessous.\n"
+    return ("<!-- RÉPONSE ENREGISTRÉE%s — source unique du résultat de ce tour.\n"
             "%s\n-->" % (suffixe, texte))
 
 
-def rendre(seances, meta):
+def rendre(seances, meta, avec_reponses):
     L = []
     a = L.append
 
@@ -245,11 +278,13 @@ def rendre(seances, meta):
     if meta["illisibles"]:
         a("| Lignes illisibles ignorées | %d |" % meta["illisibles"])
     a("")
-    a("**Comment lire ce rapport.** Les blocs *Prompt* sont copiés mot pour mot "
-      "depuis le journal : ils n'ont subi aucune correction, ni d'orthographe "
-      "ni de formulation. Les blocs *Résumé* sont rédigés par Claude à partir "
-      "des réponses enregistrées et peuvent être imprécis. Seuls les prompts "
-      "sont garantis littéraux.")
+    a("**Comment lire ce rapport.** Chaque tour donne d'abord le *Prompt*, copié "
+      "mot pour mot depuis le journal — aucune correction d'orthographe ni de "
+      "formulation —, puis le *Résultat* : une ou deux phrases disant ce que la "
+      "demande a produit. Les *Actions journalisées* détaillent ensuite les "
+      "fichiers touchés et les commandes lancées. Seuls les prompts sont "
+      "garantis littéraux ; les résultats sont rédigés par Claude et peuvent "
+      "être imprécis.")
     a("")
 
     for i, seance in enumerate(seances, start=1):
@@ -282,6 +317,14 @@ def rendre(seances, meta):
                 a(f)
             a("")
 
+            # Le résultat vient juste après le prompt : c'est ce qu'on lit en
+            # premier, et c'est la seule chose que la plupart des lecteurs
+            # liront. Le détail des actions vient l'étayer ensuite.
+            a("**Résultat**")
+            a("")
+            a(MARQUEUR)
+            a("")
+
             a("**Actions journalisées**")
             a("")
             repliees = replier_actions(tour["actions"])
@@ -292,18 +335,75 @@ def rendre(seances, meta):
                 a("- *aucune action journalisée pour ce tour*")
             a("")
 
-            a("**Résumé**")
-            a("")
-            a(bloc_reponse(tour))
-            a("")
-            a(MARQUEUR)
-            a("")
+            if avec_reponses:
+                a(bloc_reponse(tour))
+                a("")
 
     a("---")
     a("")
-    a(PIED_DE_PAGE)
+    a(pied_de_page(avec_reponses))
 
     return "\n".join(L) + "\n"
+
+
+# --------------------------------------------------------------------------
+# Nettoyage final
+# --------------------------------------------------------------------------
+
+def nettoyer_texte(texte):
+    """Retire d'un rapport rédigé les commentaires de réponse enregistrée.
+
+    Retourne (texte, nombre de blocs retirés, refus). « refus » est non nul
+    quand l'opération ne doit pas avoir lieu, et le texte est alors rendu
+    inchangé.
+
+    Le balayage suit l'état des blocs de code plutôt que de chercher la chaîne
+    partout : un prompt verbatim qui contiendrait « <!-- RÉPONSE ENREGISTRÉE »
+    est à l'intérieur d'une clôture, donc jamais examiné. Un rapport dont les
+    prompts auraient été retouchés serait irrecevable, et c'est la seule
+    propriété que ce kit garantit vraiment.
+
+    Refuse de tourner s'il reste un marqueur de résumé : les réponses sont la
+    source de ces résumés, les retirer avant rédaction rendrait le rapport
+    impossible à finir.
+    """
+    if MARQUEUR in texte:
+        return texte, 0, ("il reste des marqueurs « RÉSUMÉ À RÉDIGER » : "
+                          "rédige les résultats avant de nettoyer")
+
+    lignes = texte.split("\n")
+    sortie = []
+    cloture_attendue = None
+    retires = 0
+    i = 0
+
+    while i < len(lignes):
+        ligne = lignes[i]
+
+        if cloture_attendue is None:
+            ouverture = re.match(r"^(`{3,})text$", ligne)
+            if ouverture:
+                cloture_attendue = len(ouverture.group(1))
+                sortie.append(ligne)
+                i += 1
+                continue
+            if ligne.startswith(DEBUT_REPONSE):
+                # Avale le commentaire jusqu'à sa fermeture, puis la ligne vide
+                # qui le suivait, pour ne pas laisser de trou dans le document.
+                while i < len(lignes) and "-->" not in lignes[i]:
+                    i += 1
+                i += 1
+                if i < len(lignes) and lignes[i] == "":
+                    i += 1
+                retires += 1
+                continue
+        elif re.match(r"^`{%d}$" % cloture_attendue, ligne):
+            cloture_attendue = None
+
+        sortie.append(ligne)
+        i += 1
+
+    return "\n".join(sortie).replace(PIED_AVEC, PIED_SANS), retires, None
 
 
 # --------------------------------------------------------------------------
@@ -351,7 +451,36 @@ def main(argv):
                    help="fichier de sortie, ou « auto » pour "
                         "rapports/rapport-ia-AAAA-MM-JJ.md à la racine du projet "
                         "(défaut : sortie standard)")
+    p.add_argument("--avec-reponses", action="store_true",
+                   help="joindre à chaque tour la réponse enregistrée, en "
+                        "commentaire HTML invisible (défaut : non — le journal "
+                        "les conserve déjà intégralement)")
+    p.add_argument("--nettoyer", metavar="RAPPORT", default=None,
+                   help="retirer d'un rapport déjà rédigé les réponses "
+                        "enregistrées, et aligner la note méthodologique. "
+                        "Refuse de tourner s'il reste des résumés à rédiger.")
     args = p.parse_args(argv)
+
+    # Mode nettoyage : l'entrée est un rapport, pas un journal. Rien d'autre
+    # n'est lu, rien d'autre n'est écrit.
+    if args.nettoyer:
+        if not os.path.isfile(args.nettoyer):
+            sys.stderr.write("Rapport introuvable : %s\n" % args.nettoyer)
+            return 1
+        with open(args.nettoyer, "r", encoding="utf-8") as f:
+            avant = f.read()
+        apres, retires, refus = nettoyer_texte(avant)
+        if refus:
+            sys.stderr.write("Nettoyage refusé : %s.\n"
+                             "Le fichier n'a pas été touché.\n" % refus)
+            return 2
+        if apres != avant:
+            with open(args.nettoyer, "w", encoding="utf-8", newline="\n") as f:
+                f.write(apres)
+        sys.stderr.write(
+            "%d réponse(s) enregistrée(s) retirée(s) de %s.\n"
+            % (retires, args.nettoyer))
+        return 0
 
     # « auto » évite de faire calculer la date au modèle : elle vient de
     # l'horloge de la machine, donc le nom de fichier est toujours juste.
@@ -401,7 +530,7 @@ def main(argv):
         "illisibles": illisibles,
     }
 
-    texte = rendre(seances, meta)
+    texte = rendre(seances, meta, args.avec_reponses)
 
     if args.sortie:
         dossier = os.path.dirname(os.path.abspath(args.sortie))

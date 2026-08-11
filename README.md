@@ -68,31 +68,68 @@ Sous Windows, Git Bash n'est nécessaire que si tu veux lancer `install.sh` ;
 
 ## 4. Installation dans un nouveau projet
 
+Deux chemins à compléter, à toi de choisir où :
+
+| Placeholder | Ce que tu mets à la place |
+|---|---|
+| `CHEMIN_DU_KIT` | où tu ranges le kit, une fois pour toutes (il ne bouge plus ensuite) |
+| `CHEMIN_DU_PROJET` | le dossier du travail scolaire à journaliser, qui doit déjà exister |
+
+Rien n'est supposé de ton arborescence : le kit n'écrit jamais dans ton dossier
+personnel de sa propre initiative, et l'installeur refuse de démarrer si
+`CHEMIN_DU_PROJET` n'existe pas encore, plutôt que de le créer au hasard.
+
 **Linux, macOS, ou Windows avec Git Bash :**
 
 ```bash
-git clone https://github.com/PL4Y3R51/journal-ia-claude-code ~/outils/journal-ia
-~/outils/journal-ia/install.sh ~/projets/mon-travail-scolaire
-cd ~/projets/mon-travail-scolaire && claude
+git clone https://github.com/PL4Y3R51/journal-ia-claude-code CHEMIN_DU_KIT
+CHEMIN_DU_KIT/install.sh CHEMIN_DU_PROJET
+cd CHEMIN_DU_PROJET && claude
 ```
 
 **Windows, PowerShell :**
 
 ```powershell
-git clone https://github.com/PL4Y3R51/journal-ia-claude-code $HOME\outils\journal-ia
-& $HOME\outils\journal-ia\install.ps1 $HOME\projets\mon-travail-scolaire
-cd $HOME\projets\mon-travail-scolaire ; claude
+git clone https://github.com/PL4Y3R51/journal-ia-claude-code CHEMIN_DU_KIT
+& CHEMIN_DU_KIT\install.ps1 CHEMIN_DU_PROJET
+cd CHEMIN_DU_PROJET ; claude
 ```
 
 Si PowerShell refuse d'exécuter le script :
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File $HOME\outils\journal-ia\install.ps1 $HOME\projets\mon-travail-scolaire
+powershell -ExecutionPolicy Bypass -File CHEMIN_DU_KIT\install.ps1 CHEMIN_DU_PROJET
+```
+
+<details>
+<summary>Exemple complet, si tu veux voir à quoi ça ressemble rempli</summary>
+
+```bash
+git clone https://github.com/PL4Y3R51/journal-ia-claude-code ~/outils/journal-ia
+~/outils/journal-ia/install.sh ~/cours/projet-csharp
+cd ~/cours/projet-csharp && claude
+```
+
+```powershell
+git clone https://github.com/PL4Y3R51/journal-ia-claude-code D:\outils\journal-ia
+& D:\outils\journal-ia\install.ps1 D:\cours\projet-csharp
+cd D:\cours\projet-csharp ; claude
+```
+
+</details>
+
+Tu peux aussi te placer dans le dossier du kit et installer avec des chemins
+relatifs, si tu préfères :
+
+```bash
+cd CHEMIN_DU_KIT
+./install.sh ../mon-projet
 ```
 
 L'installeur vérifie les prérequis, copie `.claude/`, prépare le dossier de
 journal, puis fait tourner un hook à blanc pour confirmer qu'il écrit vraiment.
-Le lancer deux fois ne casse rien.
+Il ne touche rien en dehors du dossier que tu lui indiques. Le lancer deux fois
+ne casse rien.
 
 **Si le projet a déjà un `.claude/settings.json`**, l'installeur ne l'écrase
 pas : il affiche le bloc `hooks` à recopier et s'arrête. Fusionne à la main, puis

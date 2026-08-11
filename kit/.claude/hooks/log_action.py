@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""log_action.py — hook PostToolUse, matcher « Write|Edit|Bash ».
+"""log_action.py — hook PostToolUse, matcher « Write|Edit|Bash|PowerShell ».
 
 Une ligne par action concrète : fichier créé/modifié, commande exécutée. La
 distinction créé / modifié et la mise en chemin relatif sont faites dans
@@ -34,9 +34,25 @@ import journal_lib  # noqa: E402
 # quand même à travers le filtre. Retire « sed » et « awk » de la liste si ton
 # usage les emploie pour écrire.
 # ===========================================================================
+#
+# La comparaison est insensible à la casse (voir est_lecture_seule) : cette liste
+# s'écrit donc entièrement en minuscules, y compris les cmdlets PowerShell.
+# ===========================================================================
 COMMANDES_LECTURE_SEULE = [
+    # POSIX — outil « Bash ».
     "ls", "cat", "cd", "pwd", "echo", "grep", "find",
     "head", "tail", "which", "wc", "sed", "awk",
+    # PowerShell — outil « PowerShell » sous Windows. Sans ces entrées, chaque
+    # « Get-Content » finirait dans le journal comme une action concrète.
+    "get-content", "get-childitem", "get-item", "get-itemproperty",
+    "get-location", "get-command", "get-date", "get-help", "get-member",
+    "get-process", "get-service", "get-module", "select-string", "test-path",
+    "measure-object", "where-object", "select-object", "sort-object",
+    "group-object", "format-table", "format-list", "out-string",
+    "resolve-path", "split-path", "join-path", "compare-object",
+    "write-output", "write-host",
+    # Alias PowerShell courants des mêmes consultations.
+    "gc", "gci", "gi", "gl", "gcm", "gm", "sls", "gps",
 ]
 SOUS_COMMANDES_GIT_LECTURE_SEULE = ["status", "log", "diff", "show"]
 

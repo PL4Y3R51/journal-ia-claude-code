@@ -44,9 +44,11 @@ coupe a eu lieu.
 
 **Ce qui n'est pas journalisé :** les commandes de simple consultation
 (`ls`, `cat`, `git status`, `git log`, `git diff`, `git show`, `grep`, `find`,
-`head`, `tail`, `pwd`, `echo`, `which`, `wc`, `cd`, `sed`, `awk`). Sans ce
-filtre, les actions réelles seraient noyées dans du bruit. La liste est en haut
-de `.claude/hooks/log_action.py` et se modifie — voir les limitations.
+`head`, `tail`, `pwd`, `echo`, `which`, `wc`, `cd`, `sed`, `awk`), ainsi que
+leurs équivalents PowerShell (`Get-Content`, `Get-ChildItem`, `Select-String`,
+`Test-Path`, `Measure-Object`…). Sans ce filtre, les actions réelles seraient
+noyées dans du bruit. La liste est en haut de `.claude/hooks/log_action.py` et se
+modifie — voir les limitations.
 
 ---
 
@@ -60,6 +62,11 @@ de `.claude/hooks/log_action.py` et se modifie — voir les limitations.
 
 Les hooks sont écrits en Python, pas en shell : ils tournent à l'identique sur
 **Linux, macOS et Windows**. Aucune bibliothèque à installer, aucun accès réseau.
+
+Sous Windows, Claude Code peut exposer le shell comme outil `PowerShell` et non
+`Bash` (variable `CLAUDE_CODE_USE_POWERSHELL_TOOL`). Le matcher du hook
+`PostToolUse` couvre les deux noms, et le filtre de lecture seule connaît les
+cmdlets courantes : les commandes sont journalisées dans les deux cas.
 
 Sous Windows, Git Bash n'est nécessaire que si tu veux lancer `install.sh` ;
 `install.ps1` fait exactement la même chose en PowerShell.
@@ -158,6 +165,13 @@ Get-Content .claude\journal-ia\journal.jsonl | Measure-Object -Line
 
 Si le compte reste à zéro, regarde `.claude/journal-ia/errors.log` : le kit y
 écrit ses pannes, une fois par message d'erreur.
+
+**Si `errors.log` est absent ou vide alors que le journal ne grossit pas**, le
+hook n'a pas démarré du tout : ce fichier ne peut être écrit que par un Python
+qui a réellement tourné. Vérifie alors le champ `command` de
+`.claude/settings.json`, et que l'interpréteur qui y figure répond bien à
+`--version` dans un terminal. Les hooks étant asynchrones, un échec de lancement
+ne s'affiche nulle part dans la session.
 
 ---
 
@@ -302,7 +316,8 @@ install.ps1             installeur Windows PowerShell
 ### Ce qui a été vérifié
 
 Ces comportements ont été testés automatiquement sous Windows, en appelant les
-hooks exactement comme Claude Code les appelle : capture verbatim d'un prompt
+scripts Python directement, avec la même entrée JSON que Claude Code leur
+transmet sur l'entrée standard : capture verbatim d'un prompt
 contenant guillemets, antislash, sauts de ligne, emoji et accents ; sortie en
 code 0 sur toute entrée dégradée, journal en lecture seule, git absent et
 interpréteur absent ; `créé` puis `modifié` sur un fichier réécrit ; filtre de
@@ -310,8 +325,14 @@ lecture seule ; dégradation en `unknown` hors dépôt Git ; deux séances
 simultanées écrivant 100 lignes sans corruption ; et concordance entre le
 rapport généré et `exemples/rapport-exemple.md`.
 
-Deux points restent à contrôler à l'œil, parce qu'ils demandent une vraie
-session : l'affichage des trois hooks dans `/hooks`, et le rendu de
+Ces tests couvrent le comportement des scripts, pas leur **branchement** : ils
+les lancent eux-mêmes, sans passer par `settings.json`. Un gabarit qui n'arrive
+pas à démarrer l'interpréteur les laisse donc tous verts — c'est exactement
+comme ça que la forme `args` a pu être publiée cassée. Le branchement se
+contrôle en vraie session, et seulement là.
+
+Trois points restent donc à contrôler à l'œil : l'affichage des trois hooks dans
+`/hooks`, une ligne réellement ajoutée au journal après un prompt, et le rendu de
 `/rapport-ia` de bout en bout. La section 5 les couvre.
 
 ### Contribuer

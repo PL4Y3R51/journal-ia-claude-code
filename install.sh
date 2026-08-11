@@ -125,7 +125,10 @@ mkdir -p "$DEST"
 if [ "$PY" = "python3" ]; then
   cp "$KIT/settings.json" "$RENDU"
 else
-  sed "s/\"command\": \"python3\"/\"command\": \"$PY\"/g" \
+  # Le gabarit est en « forme shell » : la commande est une seule chaîne,
+  # « python3 "<chemin>" ». On ne remplace donc que le nom de l'interpréteur,
+  # en tête de chaîne, sans toucher au chemin qui suit.
+  sed "s/\"command\": \"python3 /\"command\": \"$PY /g" \
     "$KIT/settings.json" > "$RENDU"
   warn "Hooks configurés avec « $PY » (python3 absent de cette machine)."
 fi
